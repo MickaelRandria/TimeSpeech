@@ -32,6 +32,7 @@ interface SlideData {
 
 // ── Static data ───────────────────────────────────────────────────────────────
 
+const FREE_LIMIT = 2    // AI rewrites available on free plan
 const BASE_TOTAL = 132  // 10+30+35+37+20 = 2h12
 
 const SLIDES: SlideData[] = [
@@ -164,6 +165,7 @@ export default function CoursePreview({
   const [totalMinutes,      setTotalMinutes]      = useState(BASE_TOTAL)
   const [finalCutAccepted,  setFinalCutAccepted]  = useState(false)
   const [acceptedCount,     setAcceptedCount]     = useState(0)
+  const [aiUsageCount,      setAiUsageCount]      = useState(0)
 
   // ── Drag & Merge state
   const [liveSlides,    setLiveSlides]    = useState<SlideData[]>(() => SLIDES.map(s => ({ ...s })))
@@ -328,6 +330,10 @@ export default function CoursePreview({
                       aiSuggestion={suggestion}
                       isMergeTarget={mergeTargetId === slide.id}
                       isMerging={slide.isMerging}
+                      aiUsageCount={aiUsageCount}
+                      freeLimit={FREE_LIMIT}
+                      onAiUsed={() => setAiUsageCount(c => c + 1)}
+                      onUpgrade={onPersonalize}
                       onMinutesDelta={handleDelta}
                       onSuggestionAccepted={
                         slide.id === 'ia-content'
