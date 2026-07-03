@@ -4,6 +4,7 @@ import AppShell from '../components/AppShell'
 import Button from '../components/Button'
 import Badge from '../components/Badge'
 import SlideNode, { AISuggestion } from '../components/SlideNode'
+import PaywallModal from '../components/PaywallModal'
 import { GENERATED_COURSE, SectionId } from '../mocks/courseData'
 import { getSessionDateLabel } from '../utils/dates'
 
@@ -166,6 +167,7 @@ export default function CoursePreview({
   const [finalCutAccepted,  setFinalCutAccepted]  = useState(false)
   const [acceptedCount,     setAcceptedCount]     = useState(0)
   const [aiUsageCount,      setAiUsageCount]      = useState(0)
+  const [paywallOpen,       setPaywallOpen]       = useState(false)
 
   // ── Drag & Merge state
   const [liveSlides,    setLiveSlides]    = useState<SlideData[]>(() => SLIDES.map(s => ({ ...s })))
@@ -333,7 +335,7 @@ export default function CoursePreview({
                       aiUsageCount={aiUsageCount}
                       freeLimit={FREE_LIMIT}
                       onAiUsed={() => setAiUsageCount(c => c + 1)}
-                      onUpgrade={onPersonalize}
+                      onUpgrade={() => setPaywallOpen(true)}
                       onMinutesDelta={handleDelta}
                       onSuggestionAccepted={
                         slide.id === 'ia-content'
@@ -497,6 +499,14 @@ export default function CoursePreview({
           </motion.div>
         </div>
       </div>
+
+      {/* ── Pricing modal (triggered by inline soft paywall) ── */}
+      <PaywallModal
+        isOpen={paywallOpen}
+        onClose={() => setPaywallOpen(false)}
+        onSelectStandard={onSave}
+        onSelectPro={onSave}
+      />
     </AppShell>
   )
 }
