@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import { motion, AnimatePresence, type Variants } from 'framer-motion'
 import AppShell from '../components/AppShell'
 import Button from '../components/Button'
@@ -27,6 +27,7 @@ interface SlideData {
   initialNotes: string
   condensedNotes?: string
   aiSuggestion?: AISuggestion
+  isMerging?: boolean
 }
 
 // ── Static data ───────────────────────────────────────────────────────────────
@@ -115,6 +116,16 @@ const POST_CAL_SUGGESTION: AISuggestion = {
   saveMinutes: 4,
 }
 
+// ── Merge helper ─────────────────────────────────────────────────────────────
+
+function getMergedNotes(source: SlideData, target: SlideData): string {
+  return (
+    target.initialNotes.trimEnd() +
+    ` Pour approfondir, voici la transition vers « ${source.title} » : ` +
+    source.initialNotes
+  )
+}
+
 // ── Framer variants ───────────────────────────────────────────────────────────
 
 const sidebarVariants: Variants = {
@@ -154,12 +165,52 @@ export default function CoursePreview({
   const [finalCutAccepted,  setFinalCutAccepted]  = useState(false)
   const [acceptedCount,     setAcceptedCount]     = useState(0)
 
+  // ── Drag & Merge state
+  const [liveSlides,    setLiveSlides]    = useState<SlideData[]>(() => SLIDES.map(s => ({ ...s })))
+  const [draggingId,    setDraggingId]    = useState<string | null>(null)
+  const [mergeTargetId, setMergeTargetId] = useState<string | null>(null)
+  const mergeTargetRef = useRef<string | null>(null)
+  const cardRefs       = useRef<Map<string, HTMLDivElement>>(new Map())
+
   function handleDelta(delta: number) {
     setTotalMinutes(m => Math.max(60, m + delta))
   }
 
   function handleMainAccepted() {
     setAcceptedCount(c => c + 1)
+  }
+
+  function handleDragEnd(sourceId: string) {
+    const targetId = mergeTargetRef.current
+    setDraggingId(null)
+    mergeTargetRef.current = null
+    setMergeTargetId(null)
+
+    if (!targetId) return
+
+    const source = liveSlides.find(s => s.id === sourceId)
+    const target = liveSlides.find(s => s.id === targetId)
+    if (!source || !target) return
+
+    // Remove source card, mark target as AI-rewriting
+    setLiveSlides(prev =>
+      prev
+        .filter(s => s.id !== sourceId)
+        .map(s => s.id === targetId ? { ...s, isMerging: true } : s)
+    )
+
+    // After 2.2 s reveal combined content
+    const mergedNotes   = getMergedNotes(source, target)
+    const mergedMinutes = source.baseMinutes + target.baseMinutes
+    setTimeout(() => {
+      setLiveSlides(prev =>
+        prev.map(s =>
+          s.id === targetId
+            ? { ...s, isMerging: false, initialNotes: mergedNotes, baseMinutes: mergedMinutes }
+            : s
+        )
+      )
+    }, 2200)
   }
 
   const currentDuration = isCalibrated
@@ -248,33 +299,71 @@ export default function CoursePreview({
 
           {/* LEFT — Storyboard feed (70%) */}
           <div className="col-span-8 flex flex-col gap-5">
-            {SLIDES.map((slide, i) => {
-              // Post-calibration: slot ia-content suggestion only when calibrated and not yet accepted
-              const suggestion: AISuggestion | undefined =
-                slide.id === 'ia-content' && isCalibrated && !finalCutAccepted
-                  ? POST_CAL_SUGGESTION
-                  : slide.aiSuggestion
+            <AnimatePresence>
+              {liveSlides.map((slide, i) => {
+                const suggestion: AISuggestion | undefined =
+                  slide.id === 'ia-content' && isCalibrated && !finalCutAccepted
+                    ? POST_CAL_SUGGESTION
+                    : slide.aiSuggestion
 
-              return (
-                <SlideNode
-                  key={slide.id === 'ia-content' && isCalibrated ? `${slide.id}-cal` : slide.id}
-                  index={i + 1}
-                  total={SLIDES.length}
-                  title={slide.title}
-                  imageUrl={`/Slide${i + 1}.png`}
-                  initialNotes={slide.initialNotes}
-                  condensedNotes={slide.condensedNotes}
-                  baseMinutes={slide.baseMinutes}
-                  aiSuggestion={suggestion}
-                  onMinutesDelta={handleDelta}
-                  onSuggestionAccepted={
-                    slide.id === 'ia-content'
-                      ? () => setFinalCutAccepted(true)
-                      : handleMainAccepted
-                  }
-                />
-              )
-            })}
+                return (
+                  <motion.div
+                    key={slide.id}
+                    layout
+                    exit={{ opacity: 0, scale: 0.48, y: -8, filter: 'blur(5px)' }}
+                    transition={{
+                      layout:  { type: 'spring', stiffness: 110, damping: 20 },
+                      default: { duration: 0.3, ease: 'easeIn' },
+                    }}
+                  >
+                    <SlideNode
+                      key={slide.id === 'ia-content' && isCalibrated ? `${slide.id}-cal` : slide.id}
+                      index={i + 1}
+                      total={liveSlides.length}
+                      title={slide.title}
+                      imageUrl={`/Slide${i + 1}.png`}
+                      initialNotes={slide.initialNotes}
+                      condensedNotes={slide.condensedNotes}
+                      baseMinutes={slide.baseMinutes}
+                      aiSuggestion={suggestion}
+                      isMergeTarget={mergeTargetId === slide.id}
+                      isMerging={slide.isMerging}
+                      onMinutesDelta={handleDelta}
+                      onSuggestionAccepted={
+                        slide.id === 'ia-content'
+                          ? () => setFinalCutAccepted(true)
+                          : handleMainAccepted
+                      }
+                      onDragStart={() => {
+                        setDraggingId(slide.id)
+                        mergeTargetRef.current = null
+                        setMergeTargetId(null)
+                      }}
+                      onDrag={(x, y) => {
+                        let found: string | null = null
+                        for (const [tid, el] of cardRefs.current) {
+                          if (tid === slide.id) continue
+                          const r = el.getBoundingClientRect()
+                          if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) {
+                            found = tid
+                            break
+                          }
+                        }
+                        if (found !== mergeTargetRef.current) {
+                          mergeTargetRef.current = found
+                          setMergeTargetId(found)
+                        }
+                      }}
+                      onDragEnd={() => handleDragEnd(slide.id)}
+                      registerRef={(el) => {
+                        if (el) cardRefs.current.set(slide.id, el)
+                        else cardRefs.current.delete(slide.id)
+                      }}
+                    />
+                  </motion.div>
+                )
+              })}
+            </AnimatePresence>
           </div>
 
           {/* RIGHT — Sticky sidebar (30%) */}
@@ -305,7 +394,7 @@ export default function CoursePreview({
 
               {/* Per-slide mini breakdown */}
               <div className="px-6 py-3 flex flex-col gap-1.5">
-                {SLIDES.map((s, i) => (
+                {liveSlides.map((s, i) => (
                   <div key={s.id} className="flex items-center gap-2">
                     <span className="text-[10px] font-black text-slate-200 w-4 font-mono">{String(i + 1).padStart(2, '0')}</span>
                     <span className="flex-1 text-[10px] font-semibold text-slate-400 truncate">{s.title}</span>
@@ -329,7 +418,7 @@ export default function CoursePreview({
                   { label: 'École',  value: 'ESD Bordeaux'   },
                   { label: 'Séance', value: sessionDate       },
                   { label: 'Statut', value: statutLabel       },
-                  { label: 'Slides', value: `${SLIDES.length} slides` },
+                  { label: 'Slides', value: `${liveSlides.length} slides` },
                 ].map(({ label, value }, i, arr) => (
                   <div key={label} className={`flex items-center justify-between py-3 ${i < arr.length - 1 ? 'border-b border-slate-50' : ''}`}>
                     <span className="text-xs font-bold text-slate-400">{label}</span>

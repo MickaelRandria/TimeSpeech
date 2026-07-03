@@ -1,5 +1,5 @@
-import React, { useState, useRef, useCallback, useMemo } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react'
+import { motion, AnimatePresence, useDragControls } from 'framer-motion'
 
 export interface AISuggestion {
   text: string
@@ -15,8 +15,14 @@ export interface SlideNodeProps {
   condensedNotes?: string
   baseMinutes: number
   aiSuggestion?: AISuggestion
+  isMergeTarget?: boolean
+  isMerging?: boolean
   onMinutesDelta: (delta: number) => void
   onSuggestionAccepted?: () => void
+  onDragStart?: () => void
+  onDrag?: (x: number, y: number) => void
+  onDragEnd?: () => void
+  registerRef?: (el: HTMLDivElement | null) => void
 }
 
 function wc(t: string) {
@@ -40,6 +46,19 @@ function SparkIcon() {
   )
 }
 
+function DragHandleIcon() {
+  return (
+    <svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor">
+      <circle cx="2.5" cy="2.5" r="1.5" />
+      <circle cx="7.5" cy="2.5" r="1.5" />
+      <circle cx="2.5" cy="7"   r="1.5" />
+      <circle cx="7.5" cy="7"   r="1.5" />
+      <circle cx="2.5" cy="11.5" r="1.5" />
+      <circle cx="7.5" cy="11.5" r="1.5" />
+    </svg>
+  )
+}
+
 const SKELETON_WIDTHS = [94, 87, 91, 74, 88, 67, 82, 78]
 const TRACK_SPRING = { type: 'spring' as const, stiffness: 140, damping: 20 }
 
@@ -52,18 +71,26 @@ export default function SlideNode({
   condensedNotes,
   baseMinutes,
   aiSuggestion,
+  isMergeTarget = false,
+  isMerging = false,
   onMinutesDelta,
   onSuggestionAccepted,
+  onDragStart,
+  onDrag,
+  onDragEnd,
+  registerRef,
 }: SlideNodeProps) {
+  const dragControls = useDragControls()
+
   // ── Slider
   const sliderMin = Math.max(3, Math.round(baseMinutes * 0.4))
   const sliderMax = Math.round(baseMinutes * 1.5)
   const [sliderValue, setSliderValue] = useState(baseMinutes)
   const stableRef = useRef(baseMinutes)
   const [isHovering, setIsHovering] = useState(false)
-  const [isDragging, setIsDragging] = useState(false)
+  const [isDraggingSlider, setIsDraggingSlider] = useState(false)
 
-  // ── Rewrite state
+  // ── Rewrite state (Time Squeezer)
   const [isRewriting, setIsRewriting] = useState(false)
 
   // ── Notes + suggestion state
@@ -71,6 +98,38 @@ export default function SlideNode({
   const [suggestionDone, setSuggestionDone] = useState(false)
   const [showBar, setShowBar] = useState(true)
   const [imgError, setImgError] = useState(false)
+
+  // ── Post-merge reveal state
+  const [justMerged, setJustMerged] = useState(false)
+  const prevInitialNotes = useRef(initialNotes)
+  const prevBaseMinutes = useRef(baseMinutes)
+
+  // Sync when parent updates slides after a merge
+  useEffect(() => {
+    const notesChanged = prevInitialNotes.current !== initialNotes
+    const minutesChanged = prevBaseMinutes.current !== baseMinutes
+
+    if ((notesChanged || minutesChanged) && !isMerging) {
+      if (notesChanged) {
+        prevInitialNotes.current = initialNotes
+        setNotes(initialNotes)
+        setSuggestionDone(false)
+        setShowBar(true)
+      }
+      if (minutesChanged) {
+        prevBaseMinutes.current = baseMinutes
+        setSliderValue(baseMinutes)
+        stableRef.current = baseMinutes
+      }
+      if (notesChanged) {
+        setJustMerged(true)
+        const t = setTimeout(() => setJustMerged(false), 2800)
+        return () => clearTimeout(t)
+      }
+    }
+  }, [initialNotes, baseMinutes, isMerging])
+
+  const shouldShowShimmer = isRewriting || isMerging
 
   const sliderPct = ((sliderValue - sliderMin) / (sliderMax - sliderMin)) * 100
 
@@ -94,7 +153,7 @@ export default function SlideNode({
   }, [])
 
   const handlePointerUp = useCallback(() => {
-    setIsDragging(false)
+    setIsDraggingSlider(false)
     const delta = sliderValue - stableRef.current
     if (Math.abs(delta) >= 2) {
       const ratio = sliderValue / baseMinutes
@@ -126,34 +185,125 @@ export default function SlideNode({
     onSuggestionAccepted?.()
   }, [aiSuggestion, notes, sliderValue, sliderMin, onMinutesDelta, onSuggestionAccepted])
 
-  const timeDelta = sliderValue - baseMinutes
+  const timeDelta   = sliderValue - baseMinutes
   const pillVariant = timeDelta < 0 ? 'emerald' : timeDelta > 0 ? 'orange' : 'primary'
-  const pillClass = {
+  const pillClass   = {
     emerald: 'bg-emerald-50 text-emerald-700 border-emerald-200/60',
     orange:  'bg-orange-50 text-orange-600 border-orange-200/60',
     primary: 'bg-primary/5 text-primary border-primary/15',
   }[pillVariant]
 
-  const thumbScale = isDragging ? 0.88 : isHovering ? 1.28 : 1
-  const thumbShadow = isDragging
+  const thumbScale  = isDraggingSlider ? 0.88 : isHovering ? 1.28 : 1
+  const thumbShadow = isDraggingSlider
     ? '0 1px 5px rgba(90,87,255,0.15)'
     : isHovering
     ? '0 4px 18px rgba(90,87,255,0.35), 0 1px 4px rgba(0,0,0,0.06)'
     : '0 2px 10px rgba(90,87,255,0.25), 0 1px 3px rgba(0,0,0,0.05)'
 
+  // Card box shadow driven by merge state
+  const cardBoxShadow = isMergeTarget
+    ? '0 8px 40px rgba(15,23,42,0.09), 0 0 0 2.5px rgba(90,87,255,0.5), 0 0 28px rgba(90,87,255,0.14)'
+    : isMerging
+    ? '0 0 0 2px rgba(90,87,255,0.35), 0 8px 40px rgba(90,87,255,0.12)'
+    : justMerged
+    ? '0 0 0 2px rgba(90,87,255,0.22), 0 8px 32px rgba(15,23,42,0.06)'
+    : '0 4px 32px rgba(15,23,42,0.05)'
+
   return (
     <motion.div
-      layout
-      transition={{ type: 'spring', stiffness: 110, damping: 20 }}
-      className="bg-white rounded-3xl overflow-hidden border border-slate-100/60 shadow-[0_4px_32px_rgba(15,23,42,0.05)] hover:shadow-[0_8px_40px_rgba(15,23,42,0.09)] transition-shadow duration-500"
+      ref={(el) => registerRef?.(el as HTMLDivElement | null)}
+      drag
+      dragControls={dragControls}
+      dragListener={false}
+      dragMomentum={false}
+      dragElastic={0.04}
+      dragSnapToOrigin
+      onDrag={(_, info) => onDrag?.(info.point.x, info.point.y)}
+      onDragEnd={onDragEnd}
+      whileDrag={{
+        scale: 1.025,
+        boxShadow: '0 32px 72px rgba(15,23,42,0.22), 0 8px 28px rgba(90,87,255,0.16)',
+        zIndex: 50,
+        cursor: 'grabbing',
+      }}
+      animate={{
+        scale: isMergeTarget ? 0.975 : 1,
+        boxShadow: cardBoxShadow,
+      }}
+      transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+      style={{ position: 'relative', touchAction: 'none' }}
+      className="bg-white rounded-3xl overflow-hidden border border-slate-100/60 hover:shadow-[0_8px_40px_rgba(15,23,42,0.09)] transition-shadow duration-500"
     >
+
+      {/* ── MERGE TARGET OVERLAY ── */}
+      <AnimatePresence>
+        {isMergeTarget && (
+          <motion.div
+            key="merge-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.14 }}
+            className="absolute inset-0 z-30 rounded-3xl pointer-events-none flex items-center justify-center"
+            style={{ backgroundColor: 'rgba(90,87,255,0.04)' }}
+          >
+            <motion.div
+              initial={{ scale: 0.78, opacity: 0, y: 8 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              transition={{ type: 'spring', stiffness: 360, damping: 26, delay: 0.06 }}
+              className="flex items-center gap-2.5 bg-primary text-white text-[12px] font-black px-5 py-3 rounded-2xl shadow-[0_6px_24px_rgba(90,87,255,0.45)]"
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <circle cx="7" cy="7" r="6" />
+                <path d="M7 4v6M4 7h6" />
+              </svg>
+              Fusionner ici
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── MERGING PROGRESS SWEEP ── */}
+      <AnimatePresence>
+        {isMerging && (
+          <motion.div
+            key="merge-progress"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute top-0 left-0 right-0 h-[2.5px] z-20 overflow-hidden pointer-events-none rounded-t-3xl"
+          >
+            <motion.div
+              className="h-full w-[45%] bg-gradient-to-r from-transparent via-primary to-transparent"
+              animate={{ x: ['-110%', '280%'] }}
+              transition={{ duration: 1.35, repeat: Infinity, ease: 'linear' }}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* ── HEADER ── */}
-      <div className="flex items-center gap-3 px-7 py-[14px] border-b border-slate-100/50 bg-white/80">
+      <div className="flex items-center gap-2 px-5 py-[13px] border-b border-slate-100/50 bg-white/80">
+
+        {/* Drag handle */}
+        <div
+          onPointerDown={(e) => {
+            e.preventDefault()
+            dragControls.start(e)
+            onDragStart?.()
+          }}
+          className="cursor-grab active:cursor-grabbing text-slate-200 hover:text-primary/50 transition-colors duration-150 flex-shrink-0 select-none p-1 -ml-0.5 touch-none"
+          title="Glisser pour fusionner"
+        >
+          <DragHandleIcon />
+        </div>
+
         <span className="text-[11px] font-black text-slate-200 font-mono tabular-nums w-5 flex-shrink-0">
           {String(index).padStart(2, '0')}
         </span>
         <p className="flex-1 text-[13px] font-extrabold text-slate-800 tracking-tight truncate">{title}</p>
 
+        {/* Bouncing time pill */}
         <AnimatePresence mode="wait">
           <motion.div
             key={sliderValue}
@@ -173,7 +323,6 @@ export default function SlideNode({
       <div className="px-7 py-4 border-b border-slate-100/50 bg-gradient-to-r from-primary/[0.025] to-transparent">
         <div className="flex items-center gap-4">
 
-          {/* Label */}
           <span className="text-[9px] font-black uppercase tracking-[0.16em] text-slate-300 w-10 flex-shrink-0">
             Durée
           </span>
@@ -181,7 +330,6 @@ export default function SlideNode({
           {/* Track + invisible native input */}
           <div className="flex-1 relative h-6 flex items-center">
 
-            {/* Visual track (pointer-events-none) */}
             <div className="absolute inset-y-0 flex items-center w-full pointer-events-none">
               <div className="w-full h-[5px] bg-slate-100 rounded-full overflow-hidden">
                 <motion.div
@@ -193,7 +341,6 @@ export default function SlideNode({
               </div>
             </div>
 
-            {/* Visual thumb (pointer-events-none, driven by hover/drag state) */}
             <motion.div
               className="absolute top-1/2 -translate-y-1/2 pointer-events-none z-0"
               animate={{ left: `${sliderPct}%` }}
@@ -206,23 +353,21 @@ export default function SlideNode({
               />
             </motion.div>
 
-            {/* Native input — transparent, captures all pointer events */}
             <input
               type="range"
               min={sliderMin}
               max={sliderMax}
               value={sliderValue}
               onChange={handleSliderChange}
-              onPointerDown={() => setIsDragging(true)}
+              onPointerDown={() => setIsDraggingSlider(true)}
               onPointerUp={handlePointerUp}
               onMouseEnter={() => setIsHovering(true)}
-              onMouseLeave={() => { setIsHovering(false); setIsDragging(false) }}
+              onMouseLeave={() => { setIsHovering(false); setIsDraggingSlider(false) }}
               className="absolute inset-0 w-full opacity-0 cursor-pointer z-10"
               style={{ height: '100%' }}
             />
           </div>
 
-          {/* Time value + spark icon */}
           <div className="flex items-center gap-1.5 flex-shrink-0">
             <AnimatePresence mode="wait">
               <motion.span
@@ -239,12 +384,12 @@ export default function SlideNode({
 
             <motion.span
               animate={
-                isRewriting
+                isRewriting || isMerging
                   ? { opacity: [0.5, 1, 0.5], scale: [0.92, 1.14, 0.92] }
                   : { opacity: 0.22, scale: 1 }
               }
               transition={
-                isRewriting
+                isRewriting || isMerging
                   ? { repeat: Infinity, duration: 0.75, ease: 'easeInOut' }
                   : { duration: 0.35 }
               }
@@ -255,7 +400,6 @@ export default function SlideNode({
           </div>
         </div>
 
-        {/* Min / max labels */}
         <div className="flex justify-between mt-1.5 pl-14">
           <span className="text-[9px] font-bold text-slate-200 tabular-nums">{sliderMin} min</span>
           <span className="text-[9px] font-bold text-slate-200 tabular-nums">{sliderMax} min</span>
@@ -271,7 +415,6 @@ export default function SlideNode({
             className="relative w-full rounded-2xl overflow-hidden border border-slate-200/50 shadow-[0_4px_20px_rgba(15,23,42,0.08)]"
             style={{ aspectRatio: '16/9' }}
           >
-            {/* Gradient placeholder — always underneath */}
             <div className="absolute inset-0 flex flex-col items-center justify-center select-none pointer-events-none bg-gradient-to-br from-primary/5 via-violet-50/50 to-slate-100">
               <span className="text-[52px] font-black text-slate-100/90 font-mono leading-none">
                 {String(index).padStart(2, '0')}
@@ -281,7 +424,6 @@ export default function SlideNode({
               </p>
             </div>
 
-            {/* Actual image (overlay) */}
             {!imgError && (
               <img
                 src={imageUrl}
@@ -291,7 +433,6 @@ export default function SlideNode({
               />
             )}
 
-            {/* Slide counter chip */}
             <div className="absolute bottom-2 right-2 z-20 bg-black/20 backdrop-blur-md rounded-lg px-2 py-0.5">
               <span className="text-[9px] font-black text-white/90 font-mono">
                 {index} / {total}
@@ -316,14 +457,29 @@ export default function SlideNode({
                 1 suggestion IA
               </motion.span>
             )}
+            {isMerging && (
+              <motion.span
+                initial={{ opacity: 0, x: 6 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider text-primary bg-primary/8 border border-primary/20 rounded-full px-2 py-0.5"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse flex-shrink-0" />
+                IA réécriture
+              </motion.span>
+            )}
           </div>
 
           {/* Notes area with shimmer overlay */}
-          <div className="relative flex-1 min-h-[130px]">
-
-            {/* Content layer — fades during rewriting */}
+          <motion.div
+            animate={justMerged ? {
+              backgroundColor: ['rgba(90,87,255,0.0)', 'rgba(90,87,255,0.04)', 'rgba(90,87,255,0.0)'],
+            } : { backgroundColor: 'rgba(90,87,255,0.0)' }}
+            transition={{ duration: 2, ease: 'easeOut' }}
+            className="relative flex-1 min-h-[130px] rounded-xl"
+          >
+            {/* Content layer */}
             <motion.div
-              animate={{ opacity: isRewriting ? 0 : 1 }}
+              animate={{ opacity: shouldShowShimmer ? 0 : 1 }}
               transition={{ duration: 0.2 }}
               className="absolute inset-0"
             >
@@ -350,7 +506,7 @@ export default function SlideNode({
 
             {/* Shimmer skeleton overlay */}
             <AnimatePresence>
-              {isRewriting && (
+              {shouldShowShimmer && (
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -367,28 +523,34 @@ export default function SlideNode({
                       <motion.div
                         className="absolute inset-y-0 w-[65%] bg-gradient-to-r from-transparent via-white/90 to-transparent"
                         animate={{ x: ['-100%', '280%'] }}
-                        transition={{
-                          duration: 1.3,
-                          repeat: Infinity,
-                          ease: 'linear',
-                          delay: i * 0.065,
-                        }}
+                        transition={{ duration: 1.3, repeat: Infinity, ease: 'linear', delay: i * 0.065 }}
                       />
                     </div>
                   ))}
                 </motion.div>
               )}
             </AnimatePresence>
-          </div>
+          </motion.div>
 
           {/* Footer */}
           <div className="flex items-center justify-between pt-2 border-t border-slate-50">
             <span className="text-[10px] text-slate-300 font-bold tabular-nums">
               {wc(notes)} mots
             </span>
-            <AnimatePresence>
-              {suggestionDone && (
+            <AnimatePresence mode="wait">
+              {justMerged ? (
                 <motion.span
+                  key="merged"
+                  initial={{ opacity: 0, x: 10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="text-[10px] font-black text-primary flex items-center gap-1"
+                >
+                  ✦ Fusionnées par l'IA
+                </motion.span>
+              ) : suggestionDone ? (
+                <motion.span
+                  key="accepted"
                   initial={{ opacity: 0, x: 10 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0 }}
@@ -396,7 +558,7 @@ export default function SlideNode({
                 >
                   ✓ &minus;{aiSuggestion?.saveMinutes} min appliquées
                 </motion.span>
-              )}
+              ) : null}
             </AnimatePresence>
           </div>
         </div>
