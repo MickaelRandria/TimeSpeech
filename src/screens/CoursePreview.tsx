@@ -250,7 +250,7 @@ export default function CoursePreview({
       userInitials="JB"
       userName="Julien"
     >
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-8">
 
         {/* ── HEADER ────────────────────────────────────────────────── */}
         <div className="rounded-2xl border border-slate-100/80 px-6 py-5 bg-gradient-to-r from-white via-white to-primary/5 shadow-[0_1px_3px_rgba(0,0,0,0.03),_0_8px_32px_rgba(90,87,255,0.04)]">
@@ -295,10 +295,10 @@ export default function CoursePreview({
         </div>
 
         {/* ── MAIN GRID ─────────────────────────────────────────────── */}
-        <div className="grid grid-cols-12 gap-6 items-start">
+        <div className="grid grid-cols-12 gap-8 items-start">
 
           {/* LEFT — Storyboard feed (70%) */}
-          <div className="col-span-8 flex flex-col gap-5">
+          <div className="col-span-8 flex flex-col gap-8">
             <AnimatePresence>
               {liveSlides.map((slide, i) => {
                 const suggestion: AISuggestion | undefined =
@@ -371,7 +371,7 @@ export default function CoursePreview({
             variants={sidebarVariants}
             initial="hidden"
             animate="show"
-            className="col-span-4 sticky top-6 flex flex-col gap-4"
+            className="col-span-4 sticky top-6 flex flex-col gap-6"
           >
 
             {/* ── KPI summary card ── */}
@@ -379,28 +379,17 @@ export default function CoursePreview({
               variants={cardVariants}
               className="bg-white rounded-3xl border border-slate-100/60 shadow-[0_4px_30px_rgba(15,23,42,0.04)] overflow-hidden"
             >
-              <div className="px-6 pt-6 pb-4 border-b border-slate-100/60">
-                <span className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-400">Durée totale</span>
-                <div className="flex items-end gap-3 mt-2">
+              <div className="px-7 pt-7 pb-7">
+                <span className="text-sm font-black uppercase tracking-widest text-slate-400">Durée totale</span>
+                <div className="flex items-end gap-3 mt-3">
                   <span
                     key={currentDuration}
-                    className={`text-3xl font-black tracking-[-0.04em] leading-none animate-duration-change ${kpiColor}`}
+                    className={`text-4xl font-black tracking-[-0.04em] leading-none animate-duration-change ${kpiColor}`}
                   >
                     {currentDuration}
                   </span>
-                  <span className="text-xs font-bold text-slate-400 pb-0.5">/ 2h00 objectif</span>
+                  <span className="text-sm font-semibold text-slate-400 pb-0.5">/ 2h00 objectif</span>
                 </div>
-              </div>
-
-              {/* Per-slide mini breakdown */}
-              <div className="px-6 py-3 flex flex-col gap-1.5">
-                {liveSlides.map((s, i) => (
-                  <div key={s.id} className="flex items-center gap-2">
-                    <span className="text-[10px] font-black text-slate-200 w-4 font-mono">{String(i + 1).padStart(2, '0')}</span>
-                    <span className="flex-1 text-[10px] font-semibold text-slate-400 truncate">{s.title}</span>
-                    <span className="text-[10px] font-black text-primary">{s.baseMinutes} min</span>
-                  </div>
-                ))}
               </div>
             </motion.div>
 
@@ -409,20 +398,20 @@ export default function CoursePreview({
               variants={cardVariants}
               className="bg-white rounded-3xl border border-slate-100/60 shadow-[0_4px_30px_rgba(15,23,42,0.04)] overflow-hidden"
             >
-              <div className="px-6 pt-5 pb-3 border-b border-slate-100/60 flex items-center justify-between">
-                <span className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-400">Contexte</span>
+              <div className="px-7 pt-6 pb-4 border-b border-slate-100/60 flex items-center justify-between">
+                <span className="text-sm font-black uppercase tracking-widest text-slate-400">Contexte</span>
                 <Badge label="Démo gratuite" variant="success" />
               </div>
-              <div className="px-6 py-1">
+              <div className="px-7 py-1">
                 {[
                   { label: 'École',  value: 'ESD Bordeaux'   },
                   { label: 'Séance', value: sessionDate       },
                   { label: 'Statut', value: statutLabel       },
                   { label: 'Slides', value: `${liveSlides.length} slides` },
                 ].map(({ label, value }, i, arr) => (
-                  <div key={label} className={`flex items-center justify-between py-3 ${i < arr.length - 1 ? 'border-b border-slate-50' : ''}`}>
-                    <span className="text-xs font-bold text-slate-400">{label}</span>
-                    <span className="text-xs font-extrabold text-slate-700 text-right max-w-[60%] leading-tight">{value}</span>
+                  <div key={label} className={`flex items-center justify-between py-3.5 ${i < arr.length - 1 ? 'border-b border-slate-50' : ''}`}>
+                    <span className="text-sm font-semibold text-slate-400">{label}</span>
+                    <span className="text-sm font-bold text-slate-700 text-right max-w-[60%] leading-tight">{value}</span>
                   </div>
                 ))}
               </div>
@@ -437,11 +426,11 @@ export default function CoursePreview({
                   initial="hidden"
                   animate="show"
                   exit={{ opacity: 0, y: -8 }}
-                  className="bg-gradient-to-br from-primary/5 via-violet-50/60 to-white rounded-3xl border border-primary/15 shadow-[0_4px_20px_rgba(90,87,255,0.06)] p-5"
+                  className="bg-gradient-to-br from-primary/5 via-violet-50/60 to-white rounded-3xl border border-primary/15 shadow-[0_4px_20px_rgba(90,87,255,0.06)] p-7"
                 >
-                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-primary/60 mb-2">Prochaine étape</p>
-                  <p className="text-sm font-extrabold text-slate-800 mb-1 tracking-tight">Calibrez votre débit vocal</p>
-                  <p className="text-[11px] text-slate-400 font-semibold leading-relaxed mb-3">
+                  <p className="text-sm font-black uppercase tracking-widest text-primary/60 mb-3">Prochaine étape</p>
+                  <p className="text-base font-extrabold text-slate-800 mb-2 tracking-tight">Calibrez votre débit vocal</p>
+                  <p className="text-sm text-slate-400 font-semibold leading-relaxed mb-4">
                     Obtenez une estimation personnalisée basée sur votre vitesse de parole réelle.
                   </p>
                   <Button variant="primary" fullWidth onClick={onPersonalize} className="shadow-glow">
@@ -455,13 +444,13 @@ export default function CoursePreview({
             {showCalibrationCard && (
               <motion.div
                 variants={cardVariants}
-                className="bg-white rounded-3xl border border-primary/12 shadow-[0_4px_20px_rgba(90,87,255,0.05)] p-5"
+                className="bg-white rounded-3xl border border-primary/12 shadow-[0_4px_20px_rgba(90,87,255,0.05)] p-7"
               >
-                <p className="text-[9px] font-black uppercase tracking-[0.15em] text-primary/50 mb-2">Profil vocal</p>
-                <p className="text-sm font-extrabold text-slate-800 flex items-center gap-1.5 mb-2 tracking-tight">
+                <p className="text-sm font-black uppercase tracking-widest text-primary/50 mb-3">Profil vocal</p>
+                <p className="text-base font-extrabold text-slate-800 flex items-center gap-1.5 mb-2 tracking-tight">
                   <span className="text-emerald-500">✓</span> Cours recalibré
                 </p>
-                <p className="text-[11px] text-slate-400 font-semibold leading-relaxed">
+                <p className="text-sm text-slate-400 font-semibold leading-relaxed">
                   Débit détecté : {course.wpm} mots/min.{' '}
                   {finalCutAccepted
                     ? 'Durée parfaitement alignée sur votre rythme.'
@@ -471,10 +460,10 @@ export default function CoursePreview({
                   <motion.div
                     initial={{ scale: 0.95, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
-                    className="mt-3 flex items-center gap-2 p-3 rounded-2xl bg-emerald-50 border border-emerald-100"
+                    className="mt-4 flex items-center gap-2.5 p-4 rounded-2xl bg-emerald-50 border border-emerald-100"
                   >
                     <span className="text-emerald-500 font-black">✓</span>
-                    <p className="text-[11px] font-bold text-emerald-700">Cours calibré sur votre profil — exactement 2h00 !</p>
+                    <p className="text-sm font-bold text-emerald-700">Cours calibré sur votre profil — exactement 2h00 !</p>
                   </motion.div>
                 )}
               </motion.div>
@@ -483,20 +472,20 @@ export default function CoursePreview({
             {/* ── Exercise card ── */}
             <motion.div
               variants={cardVariants}
-              className="bg-white rounded-3xl border border-slate-100/60 shadow-[0_4px_30px_rgba(15,23,42,0.04)] p-5"
+              className="bg-white rounded-3xl border border-slate-100/60 shadow-[0_4px_30px_rgba(15,23,42,0.04)] p-7"
             >
-              <p className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-400 mb-2">Exercice principal</p>
-              <p className="text-sm font-extrabold text-slate-800 mb-2 tracking-tight leading-snug">{course.exercise}</p>
+              <p className="text-sm font-black uppercase tracking-widest text-slate-400 mb-3">Exercice principal</p>
+              <p className="text-base font-bold text-slate-800 mb-3 tracking-tight leading-snug">{course.exercise}</p>
               <Badge label="Cas pratique intégré" variant="primary" />
             </motion.div>
 
             {/* ── Secondary actions ── */}
             <motion.div variants={cardVariants} className="flex flex-col items-center gap-2 pt-1">
-              <button onClick={onExport} className="text-xs font-bold text-slate-400 hover:text-slate-600 transition-colors">Exporter</button>
+              <button onClick={onExport} className="text-sm font-bold text-slate-400 hover:text-slate-600 transition-colors">Exporter</button>
               {onViewPlanning && (
-                <button onClick={onViewPlanning} className="text-xs font-bold text-slate-400 hover:text-slate-600 transition-colors">Voir dans le planning</button>
+                <button onClick={onViewPlanning} className="text-sm font-bold text-slate-400 hover:text-slate-600 transition-colors">Voir dans le planning</button>
               )}
-              <button onClick={onBack} className="text-xs font-bold text-slate-400 hover:text-slate-500 transition-colors mt-1">← Retour</button>
+              <button onClick={onBack} className="text-sm font-bold text-slate-400 hover:text-slate-500 transition-colors mt-1">← Retour</button>
             </motion.div>
 
           </motion.div>
