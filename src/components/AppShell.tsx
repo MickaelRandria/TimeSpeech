@@ -1,7 +1,7 @@
 import React from 'react'
 import Sidebar, { DEFAULT_SIDEBAR_ITEMS } from './Sidebar'
 import Topbar from './Topbar'
-import { useCompletedSidebarItems } from '../contexts/SidebarContext'
+import { useCompletedSidebarItems, useSidebarNavigate } from '../contexts/SidebarContext'
 
 interface AppShellProps {
   children: React.ReactNode
@@ -31,7 +31,9 @@ export default function AppShell({
   userName,
 }: AppShellProps) {
   const contextCompleted = useCompletedSidebarItems()
+  const contextNavigate  = useSidebarNavigate()
   const resolved = completedSidebarItems ?? contextCompleted
+  const resolvedNavigate = onSidebarNavigate ?? contextNavigate
 
   const mergedItems = DEFAULT_SIDEBAR_ITEMS.map(item => ({
     ...item,
@@ -43,7 +45,7 @@ export default function AppShell({
       <Sidebar
         items={mergedItems}
         activeId={activeSidebarItem}
-        onNavigate={onSidebarNavigate}
+        onNavigate={resolvedNavigate}
       />
       <div className="flex flex-col flex-1 bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.02)] border border-slate-100/50 overflow-hidden">
         <Topbar

@@ -8,6 +8,7 @@ import SectionHeader from '../components/SectionHeader'
 import WeekSelector from '../components/WeekSelector'
 import PlanningCourseCard from '../components/PlanningCourseCard'
 import Modal from '../components/Modal'
+import BentoCalendar from '../components/BentoCalendar'
 import { GENERATED_COURSE } from '../mocks/courseData'
 import { getCurrentWeekDays, getSessionDateLabel, getTodayISODate, getWeekLabel, formatShortDate } from '../utils/dates'
 
@@ -16,9 +17,12 @@ interface PlanningCourse {
   title: string
   school: string
   dateLabel: string
+  isoDate?: string
+  timeLabel?: string
   status: 'generated' | 'missing-brief' | 'to-prepare'
   targetDuration: string
   estimatedDuration?: string
+  slides?: string[]
 }
 
 interface PlanningProps {
@@ -113,9 +117,10 @@ export default function Planning({ onOpenCourse, onCalibrateProfile, onAddBrief,
 
   // Reactive State for courses list
   const [courses, setCourses] = useState<PlanningCourse[]>([
-    { id: 'ia-marketing', title: 'IA & marketing digital',             school: 'ESD Bordeaux', dateLabel: sessionDate,                                       status: 'generated'      as const, estimatedDuration: '2h12', targetDuration: '2h00' },
-    { id: 'data-viz',     title: 'Visualisation de données',           school: 'ESD Bordeaux', dateLabel: `${formatShortDate(tue)} · 14h00 – 16h00`,         status: 'missing-brief'  as const, targetDuration: '2h00' },
-    { id: 'ml-intro',     title: 'Introduction au Machine Learning',   school: 'ESD Bordeaux', dateLabel: `${formatShortDate(fri)} · 09h00 – 11h00`,         status: 'to-prepare'     as const, targetDuration: '2h00' },
+    { id: 'ia-marketing', title: 'IA & marketing digital',           school: 'ESD Bordeaux', dateLabel: sessionDate,                               isoDate: weekDays[3].date, timeLabel: '10h00 – 12h00', status: 'generated'     as const, estimatedDuration: '2h12', targetDuration: '2h00',
+      slides: ['/Slide1.png', '/Slide2.png', '/Slide3.png', '/Slide4.png', '/Slide5.png'] },
+    { id: 'data-viz',     title: 'Visualisation de données',         school: 'ESD Bordeaux', dateLabel: `${formatShortDate(tue)} · 14h00 – 16h00`, isoDate: weekDays[1].date, timeLabel: '14h00 – 16h00', status: 'missing-brief' as const, targetDuration: '2h00' },
+    { id: 'ml-intro',     title: 'Introduction au Machine Learning', school: 'ESD Bordeaux', dateLabel: `${formatShortDate(fri)} · 09h00 – 11h00`, isoDate: weekDays[4].date, timeLabel: '09h00 – 11h00', status: 'to-prepare'    as const, targetDuration: '2h00' },
   ])
 
   // Synchronize dynamic duration changes in list state
@@ -130,7 +135,7 @@ export default function Planning({ onOpenCourse, onCalibrateProfile, onAddBrief,
   }, [estimatedMinutes])
 
   // UI View States
-  const [viewMode, setViewMode] = useState<'timeline' | 'board'>('timeline')
+  const [viewMode, setViewMode] = useState<'timeline' | 'board' | 'calendar'>('calendar')
   const [selectedCourse, setSelectedCourse] = useState('ia-marketing')
   const [selectedDate,   setSelectedDate]   = useState(todayDate)
 
@@ -426,26 +431,25 @@ export default function Planning({ onOpenCourse, onCalibrateProfile, onAddBrief,
             <div className="flex items-center gap-4">
               {/* Sliding Toggle View Selector */}
               <div className="bg-slate-100 p-1 rounded-full flex items-center shadow-inner">
-                <button
-                  onClick={() => setViewMode('timeline')}
-                  className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-300 ${
-                    viewMode === 'timeline'
-                      ? 'bg-white text-primary shadow-sm scale-105'
-                      : 'text-slate-500 hover:text-slate-800'
-                  }`}
-                >
-                  Vue Semaine
-                </button>
-                <button
-                  onClick={() => setViewMode('board')}
-                  className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-300 ${
-                    viewMode === 'board'
-                      ? 'bg-white text-primary shadow-sm scale-105'
-                      : 'text-slate-500 hover:text-slate-800'
-                  }`}
-                >
-                  Vue Statut (Kanban)
-                </button>
+                {(
+                  [
+                    { id: 'calendar', label: '🗓 Calendrier' },
+                    { id: 'timeline', label: 'Vue Semaine' },
+                    { id: 'board',    label: 'Kanban' },
+                  ] as const
+                ).map(v => (
+                  <button
+                    key={v.id}
+                    onClick={() => setViewMode(v.id)}
+                    className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all duration-300 ${
+                      viewMode === v.id
+                        ? 'bg-white text-primary shadow-sm scale-105'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    {v.label}
+                  </button>
+                ))}
               </div>
 
               {/* Add Course Button */}
@@ -463,66 +467,105 @@ export default function Planning({ onOpenCourse, onCalibrateProfile, onAddBrief,
         />
 
         {/* Dynamic interchangeable views with cascade loaders */}
-        {viewMode === 'timeline' ? (
-          /* Vue Chronologique Staggered */
-          <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            animate="show"
-            className="grid grid-cols-3 gap-6 flex-1 min-h-0"
-          >
-            {/* Left Column Bento Container */}
+        <AnimatePresence mode="wait">
+          {viewMode === 'calendar' && (
             <motion.div
-              variants={cardVariants}
-              className="col-span-1 bg-white rounded-3xl p-6 lg:p-8 shadow-[0_8px_30px_rgba(15,23,42,0.04)] flex flex-col h-full border border-slate-100/50"
+              key="calendar"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 12 }}
+              transition={{ duration: 0.22, ease: [0.25, 1, 0.5, 1] }}
+              className="flex-1 min-h-0"
             >
-              <WeekSelector days={weekDays} selectedDate={selectedDate} onSelectDate={setSelectedDate} className="mb-6" />
-              <div className="flex flex-col gap-4 overflow-y-auto pr-1 flex-1">
-                {courses.map(c => {
-                  const { label, action } = getPrimaryAction(c.status)
-                  return (
-                    <PlanningCourseCard
-                      key={c.id}
-                      title={c.title}
-                      school={c.school}
-                      dateLabel={c.dateLabel}
-                      status={c.status}
-                      estimatedDuration={c.id === 'ia-marketing' ? formatTime(estimatedMinutes) : ('estimatedDuration' in c ? c.estimatedDuration : undefined)}
-                      targetDuration={c.targetDuration}
-                      isSelected={selectedCourse === c.id}
-                      onClick={() => setSelectedCourse(c.id)}
-                      primaryActionLabel={label}
-                      onPrimaryAction={action}
-                    />
-                  )
-                })}
-              </div>
+              <BentoCalendar
+                courses={courses
+                  .filter(c => c.isoDate && c.timeLabel)
+                  .map(c => ({
+                    id:                c.id,
+                    title:             c.title,
+                    school:            c.school,
+                    isoDate:           c.isoDate!,
+                    timeLabel:         c.timeLabel!,
+                    status:            c.status,
+                    estimatedDuration: c.id === 'ia-marketing' ? formatTime(estimatedMinutes) : c.estimatedDuration,
+                    targetDuration:    c.targetDuration,
+                    slides:            c.slides,
+                  }))}
+                animatedMinutes={animatedMinutes}
+                currentPlan={currentPlan}
+                formatTime={formatTime}
+                onOpenCourse={onOpenCourse}
+                onAddBrief={onAddBrief}
+                onCreateCourse={onCreateCourse}
+              />
             </motion.div>
+          )}
 
-            {/* Right Column Bento Details */}
-            <motion.div variants={cardVariants} className="col-span-2">
-              {renderRightPanel()}
+          {viewMode === 'timeline' && (
+            <motion.div
+              key="timeline"
+              variants={containerVariants}
+              initial="hidden"
+              animate="show"
+              exit={{ opacity: 0 }}
+              className="grid grid-cols-3 gap-6 flex-1 min-h-0"
+            >
+              {/* Left Column Bento Container */}
+              <motion.div
+                variants={cardVariants}
+                className="col-span-1 bg-white rounded-3xl p-6 lg:p-8 shadow-[0_8px_30px_rgba(15,23,42,0.04)] flex flex-col h-full border border-slate-100/50"
+              >
+                <WeekSelector days={weekDays} selectedDate={selectedDate} onSelectDate={setSelectedDate} className="mb-6" />
+                <div className="flex flex-col gap-4 overflow-y-auto pr-1 flex-1">
+                  {courses.map(c => {
+                    const { label, action } = getPrimaryAction(c.status)
+                    return (
+                      <PlanningCourseCard
+                        key={c.id}
+                        title={c.title}
+                        school={c.school}
+                        dateLabel={c.dateLabel}
+                        status={c.status}
+                        estimatedDuration={c.id === 'ia-marketing' ? formatTime(estimatedMinutes) : ('estimatedDuration' in c ? c.estimatedDuration : undefined)}
+                        targetDuration={c.targetDuration}
+                        isSelected={selectedCourse === c.id}
+                        onClick={() => setSelectedCourse(c.id)}
+                        primaryActionLabel={label}
+                        onPrimaryAction={action}
+                      />
+                    )
+                  })}
+                </div>
+              </motion.div>
+
+              {/* Right Column Bento Details */}
+              <motion.div variants={cardVariants} className="col-span-2">
+                {renderRightPanel()}
+              </motion.div>
             </motion.div>
-          </motion.div>
-        ) : (
-          /* Vue Kanban Board Staggered */
-          <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            animate="show"
-            className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0"
-          >
-            <motion.div variants={cardVariants}>
-              {renderBoardColumn('À préparer', 'to-prepare', 'neutral')}
+          )}
+
+          {viewMode === 'board' && (
+            <motion.div
+              key="board"
+              variants={containerVariants}
+              initial="hidden"
+              animate="show"
+              exit={{ opacity: 0 }}
+              className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0"
+            >
+              <motion.div variants={cardVariants}>
+                {renderBoardColumn('À préparer', 'to-prepare', 'neutral')}
+              </motion.div>
+              <motion.div variants={cardVariants}>
+                {renderBoardColumn('Brief manquant', 'missing-brief', 'warning')}
+              </motion.div>
+              <motion.div variants={cardVariants}>
+                {renderBoardColumn('Cours généré', 'generated', 'success')}
+              </motion.div>
             </motion.div>
-            <motion.div variants={cardVariants}>
-              {renderBoardColumn('Brief manquant', 'missing-brief', 'warning')}
-            </motion.div>
-            <motion.div variants={cardVariants}>
-              {renderBoardColumn('Cours généré', 'generated', 'success')}
-            </motion.div>
-          </motion.div>
-        )}
+          )}
+        </AnimatePresence>
 
       </div>
 

@@ -58,6 +58,19 @@ export default function App() {
     else setShowAccountGate(true)
   }
 
+  const sidebarNavMap: Record<string, Step> = {
+    accueil:  'landing',
+    planning: 'planning',
+    brief:    'briefUpload',
+    ia:       'aiRefinement',
+    cours:    'coursePreview',
+    profil:   'profilePersonalization',
+  }
+  const handleSidebarNavigate = (id: string) => {
+    const target = sidebarNavMap[id]
+    if (target) goTo(target)
+  }
+
   const completedSidebarItems = useMemo(() => {
     const order = ['accueil', 'planning', 'brief', 'ia', 'cours', 'profil']
     const stepToSidebar: Record<string, string> = {
@@ -67,8 +80,9 @@ export default function App() {
       profilePersonalization: 'profil',
     }
     const current = stepToSidebar[step] ?? 'accueil'
+    // Mark current + all previous items as completed so nav dots show
     const currentIndex = order.indexOf(current)
-    return order.slice(0, currentIndex)
+    return order.slice(0, currentIndex + 1)
   }, [step])
 
   function renderScreen() {
@@ -198,7 +212,7 @@ export default function App() {
   }
 
   return (
-    <SidebarProvider completedSidebarItems={completedSidebarItems}>
+    <SidebarProvider completedSidebarItems={completedSidebarItems} onNavigate={handleSidebarNavigate}>
       {renderScreen()}
 
       {/* Account gate modal */}
