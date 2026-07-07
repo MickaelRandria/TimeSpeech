@@ -8,61 +8,98 @@ export interface PaywallModalProps {
   onClose: () => void
   onSelectStandard?: () => void
   onSelectPro?: () => void
+  freeLimit?: number
 }
 
 // ── Static data ────────────────────────────────────────────────────────────────
 
-const FREE_FEATURES = [
-  'Storyboard & notes de cours',
-  'Calibration basique du débit',
-  '2 générations IA / mois',
+type Tier = 'free' | 'standard' | 'pro'
+
+type CellValue =
+  | { kind: 'check' }
+  | { kind: 'dash' }
+  | { kind: 'text'; value: string }
+
+interface FeatureRow {
+  label: string
+  free: CellValue
+  standard: CellValue
+  pro: CellValue
+}
+
+interface PlanMeta {
+  tier: Tier
+  name: string
+  blurb: string
+  price: number
+  cta: string
+}
+
+const PLANS: PlanMeta[] = [
+  { tier: 'free',     name: 'Gratuit',     blurb: 'Votre plan actuel',    price: 0,  cta: 'Plan actuel' },
+  { tier: 'standard', name: 'Standard',    blurb: 'Formateurs réguliers', price: 15, cta: 'Choisir Standard' },
+  { tier: 'pro',      name: 'Pro Premium', blurb: 'Experts IA',           price: 59, cta: 'Débloquer Pro' },
 ]
 
-const STANDARD_FEATURES = [
-  '20 générations IA / mois',
-  'Calibration régulière du profil',
-  'Analyse post-présentation',
-  'Planification centralisée',
-]
-
-const PRO_FEATURES = [
-  'Génération IA illimitée',
-  'Assistant temps réel & Téléprompteur',
-  'Apprentissage continu IA',
-  'Support prioritaire 24/7',
-  'Exports multi-formats (PDF, PPTX…)',
+const FEATURE_ROWS: FeatureRow[] = [
+  {
+    label:    'Storyboard & Notes',
+    free:     { kind: 'check' },
+    standard: { kind: 'check' },
+    pro:      { kind: 'check' },
+  },
+  {
+    label:    'Générations IA',
+    free:     { kind: 'text', value: '2 / mois' },
+    standard: { kind: 'text', value: '20 / mois' },
+    pro:      { kind: 'text', value: 'Illimité' },
+  },
+  {
+    label:    'Calibration Vocale',
+    free:     { kind: 'text', value: 'Basique' },
+    standard: { kind: 'text', value: 'Régulière' },
+    pro:      { kind: 'text', value: 'Continue' },
+  },
+  {
+    label:    'Téléprompteur Live',
+    free:     { kind: 'dash' },
+    standard: { kind: 'dash' },
+    pro:      { kind: 'check' },
+  },
 ]
 
 // ── Icons ──────────────────────────────────────────────────────────────────────
 
-function CheckFree() {
+function TierCheck({ tier }: { tier: Tier }) {
+  if (tier === 'pro') {
+    return (
+      <div className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center shadow-[0_2px_10px_rgba(99,102,241,0.35)]">
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+          <path d="M2 5l2.2 2.2 3.8-4" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </div>
+    )
+  }
+  if (tier === 'standard') {
+    return (
+      <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+          <path d="M2 5l2.2 2.2 3.8-4" stroke="#5A57FF" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </div>
+    )
+  }
   return (
-    <div className="w-[18px] h-[18px] rounded-full bg-slate-100 flex-shrink-0 mt-[3px] flex items-center justify-center">
-      <svg width="9" height="9" viewBox="0 0 10 10" fill="none">
-        <path d="M2 5l2.2 2.2 3.8-4" stroke="#94a3b8" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
+    <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center">
+      <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+        <path d="M2 5l2.2 2.2 3.8-4" stroke="#94a3b8" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
     </div>
   )
 }
 
-function CheckStandard() {
-  return (
-    <div className="w-[18px] h-[18px] rounded-full bg-primary/10 flex-shrink-0 mt-[3px] flex items-center justify-center">
-      <svg width="9" height="9" viewBox="0 0 10 10" fill="none">
-        <path d="M2 5l2.2 2.2 3.8-4" stroke="#5A57FF" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
-      </svg>
-    </div>
-  )
-}
-
-function CheckPro() {
-  return (
-    <div className="w-[18px] h-[18px] rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex-shrink-0 mt-[3px] flex items-center justify-center shadow-[0_2px_8px_rgba(99,102,241,0.3)]">
-      <svg width="9" height="9" viewBox="0 0 10 10" fill="none">
-        <path d="M2 5l2.2 2.2 3.8-4" stroke="white" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
-      </svg>
-    </div>
-  )
+function DashIcon() {
+  return <span className="block w-3 h-[2px] rounded-full bg-slate-200" aria-hidden />
 }
 
 function CloseIcon() {
@@ -98,13 +135,42 @@ function CrownIcon() {
   )
 }
 
+function RecommendedTag() {
+  return (
+    <span className="inline-flex items-center gap-1 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full shadow-[0_2px_10px_rgba(99,102,241,0.4)] whitespace-nowrap">
+      <SparkIcon size={8} />
+      Recommandé
+    </span>
+  )
+}
+
+// ── Style helpers ──────────────────────────────────────────────────────────────
+
+const PLAN_LABEL_CLASS: Record<Tier, string> = {
+  free:     'text-[10px] font-black uppercase tracking-[0.14em] text-slate-400',
+  standard: 'text-[10px] font-black uppercase tracking-[0.14em] text-primary',
+  pro:      'text-[10px] font-black uppercase tracking-[0.14em] text-indigo-600',
+}
+
+const PLAN_PRICE_CLASS: Record<Tier, string> = {
+  free:     'text-[2rem] font-black tracking-tight text-slate-500',
+  standard: 'text-[2rem] font-black tracking-tight text-slate-900',
+  pro:      'text-[2rem] font-black tracking-tight bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent',
+}
+
+const CELL_TEXT_CLASS: Record<Tier, string> = {
+  free:     'text-[13px] font-bold text-slate-400',
+  standard: 'text-[13px] font-black text-slate-700',
+  pro:      'text-[13px] font-black bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent',
+}
+
 // ── Animation variants ─────────────────────────────────────────────────────────
 
-const cardIn = (delay: number) => ({
-  initial: { opacity: 0, y: 22, scale: 0.97 },
+const fadeUp = (delay: number) => ({
+  initial: { opacity: 0, y: 14 },
   animate: {
-    opacity: 1, y: 0, scale: 1,
-    transition: { type: 'spring' as const, stiffness: 260, damping: 24, delay },
+    opacity: 1, y: 0,
+    transition: { type: 'spring' as const, stiffness: 280, damping: 26, delay },
   },
 })
 
@@ -115,6 +181,7 @@ export default function PaywallModal({
   onClose,
   onSelectStandard,
   onSelectPro,
+  freeLimit = 2,
 }: PaywallModalProps) {
   function handleStandard() {
     onClose()
@@ -150,7 +217,7 @@ export default function PaywallModal({
               exit={{   opacity: 0, scale: 0.95,  y: 16 }}
               transition={{ type: 'spring', stiffness: 300, damping: 25 }}
               onClick={(e) => e.stopPropagation()}
-              className="relative w-full max-w-[900px] bg-white/90 backdrop-blur-xl rounded-[2rem] shadow-2xl shadow-slate-900/10 border border-white/60 pointer-events-auto overflow-hidden"
+              className="relative w-full max-w-[1040px] bg-white/90 backdrop-blur-xl rounded-[2rem] shadow-2xl shadow-slate-900/10 border border-white/60 pointer-events-auto overflow-hidden"
             >
 
               {/* Ambient blobs */}
@@ -159,19 +226,19 @@ export default function PaywallModal({
                 <div className="absolute -bottom-24 -left-24 w-80 h-80 rounded-full bg-violet-100/20 blur-3xl"/>
               </div>
 
-              {/* Close button */}
+              {/* Close button — fixed over the scrollable content below */}
               <button
                 onClick={onClose}
                 aria-label="Fermer"
-                className="absolute top-5 right-5 z-10 w-8 h-8 flex items-center justify-center rounded-full text-slate-300 hover:text-slate-500 hover:bg-slate-100/70 transition-all duration-150"
+                className="absolute top-5 right-5 z-20 w-8 h-8 flex items-center justify-center rounded-full text-slate-300 hover:text-slate-500 hover:bg-slate-100/70 transition-all duration-150"
               >
                 <CloseIcon />
               </button>
 
-              <div className="relative z-10 px-9 pt-10 pb-8">
+              <div className="relative z-10 px-9 pt-10 pb-8 max-h-[88vh] overflow-y-auto">
 
                 {/* ── Header ── */}
-                <div className="text-center mb-10">
+                <div className="text-center mb-9">
                   <motion.div
                     initial={{ scale: 0.5, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
@@ -196,149 +263,121 @@ export default function PaywallModal({
                     transition={{ delay: 0.22 }}
                     className="text-sm font-semibold text-slate-400 leading-relaxed"
                   >
-                    Vous avez utilisé vos 2 analyses IA gratuites.{' '}
+                    {freeLimit === 1
+                      ? 'Vous avez utilisé votre analyse IA gratuite.'
+                      : `Vous avez utilisé vos ${freeLimit} analyses IA gratuites.`}{' '}
                     Choisissez le plan qui correspond à votre ambition.
                   </motion.p>
                 </div>
 
-                {/* ── Pricing grid — extra top padding for the "Recommandé" badge ── */}
-                <div className="flex gap-5 items-stretch pt-6">
+                {/* ── Comparison matrix ── */}
+                <motion.div
+                  {...fadeUp(0.26)}
+                  className="relative grid grid-cols-[2fr_1fr_1fr_1fr] rounded-[1.75rem] border border-slate-100/80"
+                >
+                  {/* Pro column highlight wash — spans the full height of the matrix */}
+                  <div
+                    aria-hidden
+                    className="absolute inset-y-0 right-0 w-1/5 bg-gradient-to-b from-indigo-50/70 via-indigo-50/40 to-violet-50/30"
+                  />
 
-                  {/* ─── FREE ──────────────────────────────────────── */}
-                  <motion.div
-                    {...cardIn(0.28)}
-                    className="flex-1 rounded-[1.5rem] border border-slate-100 bg-slate-50/70 p-6 flex flex-col opacity-70"
-                  >
-                    <div className="mb-6">
-                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1.5">Gratuit</p>
-                      <p className="text-[11px] font-semibold text-slate-300 mb-5">Votre plan actuel</p>
-                      <div className="flex items-end gap-1.5 leading-none">
-                        <span className="text-[2.4rem] font-black text-slate-500 tracking-tight leading-none">0</span>
-                        <span className="text-xl font-black text-slate-400 mb-0.5">€</span>
-                        <span className="text-sm font-semibold text-slate-300 mb-1.5">/ mois</span>
+                  {/* ── Plan header row ── */}
+                  <div className="relative" />
+                  {PLANS.map((plan) => (
+                    <div key={plan.tier} className="relative flex flex-col items-center text-center px-4 pt-6 pb-5">
+                      <div className="h-5 flex items-center justify-center mb-1.5">
+                        {plan.tier === 'pro' && <RecommendedTag />}
                       </div>
-                    </div>
-
-                    <ul className="flex flex-col gap-3 flex-1">
-                      {FREE_FEATURES.map((f) => (
-                        <li key={f} className="flex items-start gap-2.5">
-                          <CheckFree />
-                          <span className="text-[13px] font-semibold text-slate-400 leading-snug">{f}</span>
-                        </li>
-                      ))}
-                    </ul>
-
-                    <button
-                      disabled
-                      className="mt-7 w-full py-3 rounded-xl border border-slate-200 text-[13px] font-black text-slate-300 cursor-not-allowed bg-white/50 select-none"
-                    >
-                      Votre offre actuelle
-                    </button>
-                  </motion.div>
-
-                  {/* ─── STANDARD ──────────────────────────────────── */}
-                  <motion.div
-                    {...cardIn(0.36)}
-                    className="flex-1 rounded-[1.5rem] border border-slate-100/80 bg-white p-6 flex flex-col shadow-[0_4px_28px_rgba(15,23,42,0.06)]"
-                  >
-                    <div className="mb-6">
-                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary mb-1.5">Standard</p>
-                      <p className="text-[11px] font-semibold text-slate-400 mb-5">Pour les formateurs réguliers</p>
-                      <div className="flex items-end gap-1.5 leading-none">
-                        <span className="text-[2.4rem] font-black text-slate-900 tracking-tight leading-none">15</span>
-                        <span className="text-xl font-black text-slate-500 mb-0.5">€</span>
-                        <span className="text-sm font-semibold text-slate-400 mb-1.5">/ mois</span>
+                      <p className={PLAN_LABEL_CLASS[plan.tier]}>{plan.name}</p>
+                      <p className="text-[10px] font-semibold text-slate-400 mt-1">{plan.blurb}</p>
+                      <div className="flex items-end gap-1 leading-none mt-3">
+                        <span className={PLAN_PRICE_CLASS[plan.tier]}>{plan.price}€</span>
                       </div>
+                      <p className="text-[10px] font-semibold text-slate-300 mt-0.5">/ mois</p>
                     </div>
+                  ))}
 
-                    <ul className="flex flex-col gap-3 flex-1">
-                      {STANDARD_FEATURES.map((f) => (
-                        <li key={f} className="flex items-start gap-2.5">
-                          <CheckStandard />
-                          <span className="text-[13px] font-semibold text-slate-600 leading-snug">{f}</span>
-                        </li>
-                      ))}
-                    </ul>
-
-                    <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.97 }}
-                      onClick={handleStandard}
-                      className="mt-7 w-full py-3 rounded-xl bg-primary text-white text-[13px] font-black shadow-[0_3px_16px_rgba(90,87,255,0.28)] hover:-translate-y-[1.5px] hover:shadow-[0_6px_24px_rgba(90,87,255,0.36)] transition-all duration-200"
-                    >
-                      Passer en Standard
-                    </motion.button>
-                  </motion.div>
-
-                  {/* ─── PRO PREMIUM ────────────────────────────────── */}
-                  <motion.div
-                    {...cardIn(0.44)}
-                    className="flex-1 relative"
-                  >
-                    {/* Floating "Recommandé" badge */}
-                    <div className="absolute -top-[22px] left-1/2 -translate-x-1/2 z-10 pointer-events-none">
-                      <div className="flex items-center gap-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-[10px] font-black uppercase tracking-[0.14em] px-4 py-[7px] rounded-full shadow-[0_4px_20px_rgba(99,102,241,0.46)] whitespace-nowrap">
-                        <SparkIcon size={9} />
-                        Recommandé
-                      </div>
-                    </div>
-
-                    {/* Gradient border + pulsing glow wrapper */}
-                    <motion.div
-                      className="h-full rounded-[1.625rem] p-[1.5px] bg-gradient-to-br from-indigo-400 via-violet-400 to-purple-500"
-                      animate={{
-                        boxShadow: [
-                          '0 12px 40px rgba(99,102,241,0.18)',
-                          '0 12px 56px rgba(99,102,241,0.32)',
-                          '0 12px 40px rgba(99,102,241,0.18)',
-                        ],
-                      }}
-                      transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
-                    >
-                      <div className="bg-white h-full rounded-[1.5rem] p-6 flex flex-col">
-
-                        <div className="mb-6">
-                          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600 mb-1.5">Pro Premium</p>
-                          <p className="text-[11px] font-semibold text-slate-400 mb-5">Pour les experts IA</p>
-                          <div className="flex items-end gap-1.5 leading-none">
-                            <span className="text-[2.4rem] font-black tracking-tight leading-none bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                              59
-                            </span>
-                            <span className="text-xl font-black text-indigo-500 mb-0.5">€</span>
-                            <span className="text-sm font-semibold text-slate-400 mb-1.5">/ mois</span>
-                          </div>
+                  {/* ── Feature rows ── */}
+                  {FEATURE_ROWS.map((row, i) => {
+                    const shaded = i % 2 === 1
+                    const firstRow = i === 0
+                    return (
+                      <React.Fragment key={row.label}>
+                        <div
+                          className={`relative flex items-center px-6 py-5 text-[13px] font-bold text-slate-600 ${shaded ? 'bg-slate-50/50' : ''} ${firstRow ? 'border-t border-slate-100/70' : ''}`}
+                        >
+                          {row.label}
                         </div>
+                        {(['free', 'standard', 'pro'] as Tier[]).map((tier) => {
+                          const cell = row[tier]
+                          return (
+                            <div
+                              key={tier}
+                              className={`relative flex items-center justify-center px-4 py-5 ${shaded && tier !== 'pro' ? 'bg-slate-50/50' : ''} ${firstRow ? 'border-t border-slate-100/70' : ''}`}
+                            >
+                              {cell.kind === 'check' && <TierCheck tier={tier} />}
+                              {cell.kind === 'dash' && <DashIcon />}
+                              {cell.kind === 'text' && (
+                                <span className={CELL_TEXT_CLASS[tier]}>{cell.value}</span>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </React.Fragment>
+                    )
+                  })}
 
-                        <ul className="flex flex-col gap-3 flex-1">
-                          {PRO_FEATURES.map((f) => (
-                            <li key={f} className="flex items-start gap-2.5">
-                              <CheckPro />
-                              <span className="text-[13px] font-semibold text-slate-700 leading-snug">{f}</span>
-                            </li>
-                          ))}
-                        </ul>
-
+                  {/* ── CTA row ── */}
+                  <div className="relative border-t border-slate-100/70" />
+                  {PLANS.map((plan) => (
+                    <div key={plan.tier} className="relative flex items-center justify-center px-4 pt-6 pb-6 border-t border-slate-100/70">
+                      {plan.tier === 'free' && (
+                        <button
+                          disabled
+                          className="w-full py-3 px-3 rounded-xl border border-slate-200 text-[12px] font-black leading-tight text-slate-300 cursor-not-allowed bg-white/50 select-none"
+                        >
+                          {plan.cta}
+                        </button>
+                      )}
+                      {plan.tier === 'standard' && (
                         <motion.button
-                          whileHover={{ scale: 1.02 }}
+                          whileHover={{ scale: 1.03 }}
+                          whileTap={{ scale: 0.97 }}
+                          onClick={handleStandard}
+                          className="w-full py-3 px-3 rounded-xl bg-primary text-white text-[12px] font-black leading-tight shadow-[0_3px_16px_rgba(90,87,255,0.28)] hover:-translate-y-[1.5px] hover:shadow-[0_6px_24px_rgba(90,87,255,0.36)] transition-all duration-200"
+                        >
+                          {plan.cta}
+                        </motion.button>
+                      )}
+                      {plan.tier === 'pro' && (
+                        <motion.button
+                          whileHover={{ scale: 1.03 }}
                           whileTap={{ scale: 0.97 }}
                           onClick={handlePro}
-                          className="mt-7 w-full py-3.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-[13px] font-black shadow-[0_4px_24px_rgba(99,102,241,0.42)] hover:shadow-[0_8px_36px_rgba(99,102,241,0.54)] transition-shadow duration-200 flex items-center justify-center gap-2"
+                          animate={{
+                            boxShadow: [
+                              '0 4px 22px rgba(99,102,241,0.32)',
+                              '0 8px 34px rgba(99,102,241,0.50)',
+                              '0 4px 22px rgba(99,102,241,0.32)',
+                            ],
+                          }}
+                          transition={{ duration: 2.6, repeat: Infinity, ease: 'easeInOut' }}
+                          className="w-full flex items-center justify-center gap-1.5 py-3 px-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-[12px] font-black leading-tight"
                         >
-                          <SparkIcon />
-                          Débloquer le Pro Premium
+                          <SparkIcon size={10} />
+                          {plan.cta}
                         </motion.button>
-                      </div>
-                    </motion.div>
-                  </motion.div>
-
-                </div>
+                      )}
+                    </div>
+                  ))}
+                </motion.div>
 
                 {/* ── Ghost dismiss link ── */}
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.56 }}
-                  className="mt-8 text-center"
+                  className="mt-7 text-center"
                 >
                   <button
                     onClick={onClose}

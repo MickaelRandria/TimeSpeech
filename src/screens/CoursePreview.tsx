@@ -1,12 +1,24 @@
-import React, { useState, useRef } from 'react'
-import { motion, AnimatePresence, type Variants } from 'framer-motion'
+import React, { useState } from 'react'
 import AppShell from '../components/AppShell'
 import Button from '../components/Button'
 import Badge from '../components/Badge'
-import SlideNode, { AISuggestion } from '../components/SlideNode'
+import type { AISuggestion } from '../components/SlideNode'
 import PaywallModal from '../components/PaywallModal'
+import CourseDetailsDrawer from '../components/CourseDetailsDrawer'
+import SlideWorkspace, { type WorkspaceSlideData } from '../components/SlideWorkspace'
 import { GENERATED_COURSE, SectionId } from '../mocks/courseData'
 import { getSessionDateLabel } from '../utils/dates'
+
+// ── Icons ──────────────────────────────────────────────────────────────────────
+
+function InfoIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="8" cy="8" r="6.5" />
+      <path d="M8 7.2v4M8 5.15v.01" />
+    </svg>
+  )
+}
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -24,71 +36,61 @@ interface CoursePreviewProps {
 interface SlideData {
   id: SectionId
   title: string
+  imageUrl: string
   baseMinutes: number
   initialNotes: string
-  condensedNotes?: string
   aiSuggestion?: AISuggestion
-  isMerging?: boolean
 }
 
 // ── Static data ───────────────────────────────────────────────────────────────
 
-const FREE_LIMIT = 2    // AI rewrites available on free plan
+const FREE_LIMIT = 1    // free AI-suggestion accepts before the paywall triggers
 const BASE_TOTAL = 132  // 10+30+35+37+20 = 2h12
 
 const SLIDES: SlideData[] = [
   {
     id: 'ia-intro',
     title: "Introduction à l'IA générative",
+    imageUrl: '/Slide1.png',
     baseMinutes: 10,
     initialNotes:
       "Bienvenue dans cette session sur l'intelligence artificielle générative. " +
       "Nous allons explorer ensemble comment ces technologies transforment nos pratiques professionnelles. " +
       "Au programme : définitions clés, panorama des outils et démonstration live. " +
       "Mon objectif est que vous repartiez avec une vision claire et des outils concrets à mettre en pratique dès cette semaine.",
-    condensedNotes:
-      "Bienvenue. IA générative : définitions clés, panorama rapide, démo live. " +
-      "Objectif : ressortir avec des outils concrets à utiliser dès cette semaine.",
   },
   {
     id: 'ia-marketing',
     title: 'IA et analyse marketing',
+    imageUrl: '/Slide2.png',
     baseMinutes: 30,
     initialNotes:
       "L'analyse marketing par IA ouvre des possibilités inédites pour les équipes. " +
       "Grâce aux modèles de traitement du langage naturel, il est possible d'analyser des milliers d'avis clients en quelques secondes. " +
       "Nous verrons comment des marques comme Sephora ou BlaBlaCar ont intégré ces outils pour segmenter leurs audiences et personnaliser leurs campagnes. " +
       "Démonstration live avec GPT-4 pour construire un brief créatif complet à partir d'un corpus de données clients.",
-    condensedNotes:
-      "L'IA analyse des milliers d'avis clients en quelques secondes. " +
-      "Exemples : Sephora, BlaBlaCar. " +
-      "Démo GPT-4 : construire un brief créatif complet en live.",
   },
   {
     id: 'ia-content',
     title: 'IA et création de contenu',
+    imageUrl: '/Slide3.png',
     baseMinutes: 35,
     initialNotes:
       "La création de contenu assistée par IA représente une révolution pour les équipes marketing. " +
       "Je vais vous montrer un workflow complet : génération d'images avec Midjourney, rédaction avec Claude, et montage vidéo avec Runway ML, " +
       "avec une démonstration complète d'outils en temps réel. " +
       "La supervision humaine reste indispensable pour garantir authenticité, cohérence de marque et conformité éthique.",
-    condensedNotes:
-      "Workflow IA création de contenu : Midjourney pour les images, Claude pour la rédaction, Runway ML pour la vidéo. " +
-      "Supervision humaine indispensable pour authenticité et cohérence de marque.",
   },
   {
     id: 'cas-pratique',
     title: 'Cas pratique',
+    imageUrl: '/Slide4.png',
     baseMinutes: 37,
     initialNotes:
       "Vous allez maintenant travailler en binômes sur un brief marketing pour une marque éco-responsable. " +
       "Étape 1 : analyser le brief avec ChatGPT. Étape 2 : générer 5 visuels avec Midjourney. Étape 3 : rédiger 3 variantes de copy. " +
       "Chaque groupe aura 15 minutes de travail, puis présentera son résultat devant les autres. " +
       "Nous terminerons par un débriefing collectif sur les apprentissages et les limites rencontrées dans l'exercice.",
-    condensedNotes:
-      "Binômes sur un brief éco-responsable : analyser (ChatGPT), générer 5 visuels (Midjourney), rédiger 3 variantes de copy. " +
-      "15 minutes de travail, puis restitution en plénière.",
     aiSuggestion: {
       text: "Nous terminerons par un débriefing collectif sur les apprentissages et les limites rencontrées dans l'exercice.",
       saveMinutes: 7,
@@ -97,15 +99,13 @@ const SLIDES: SlideData[] = [
   {
     id: 'synthese',
     title: 'Synthèse et questions',
+    imageUrl: '/Slide5.png',
     baseMinutes: 20,
     initialNotes:
       "Pour synthétiser cette session : l'IA générative est déjà dans vos outils quotidiens. " +
       "Son adoption stratégique génère un avantage compétitif concret. " +
       "La compétence humaine reste centrale pour orienter et améliorer les outputs de l'IA. " +
       "Réservons ces 10 dernières minutes à vos questions — n'hésitez pas à partager vos cas d'usage concrets et les obstacles rencontrés dans votre organisation.",
-    condensedNotes:
-      "Trois retenues : l'IA est dans vos outils quotidiens, son adoption crée un avantage compétitif concret, la compétence humaine reste centrale. " +
-      "Questions ?",
     aiSuggestion: {
       text: "Réservons ces 10 dernières minutes à vos questions — n'hésitez pas à partager vos cas d'usage concrets et les obstacles rencontrés dans votre organisation.",
       saveMinutes: 7,
@@ -116,28 +116,6 @@ const SLIDES: SlideData[] = [
 const POST_CAL_SUGGESTION: AISuggestion = {
   text: "avec une démonstration complète d'outils en temps réel",
   saveMinutes: 4,
-}
-
-// ── Merge helper ─────────────────────────────────────────────────────────────
-
-function getMergedNotes(source: SlideData, target: SlideData): string {
-  return (
-    target.initialNotes.trimEnd() +
-    ` Pour approfondir, voici la transition vers « ${source.title} » : ` +
-    source.initialNotes
-  )
-}
-
-// ── Framer variants ───────────────────────────────────────────────────────────
-
-const sidebarVariants: Variants = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.08 } },
-}
-
-const cardVariants: Variants = {
-  hidden: { opacity: 0, y: 16 },
-  show:   { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 130, damping: 18 } },
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -168,54 +146,62 @@ export default function CoursePreview({
   const [acceptedCount,     setAcceptedCount]     = useState(0)
   const [aiUsageCount,      setAiUsageCount]      = useState(0)
   const [paywallOpen,       setPaywallOpen]       = useState(false)
-
-  // ── Drag & Merge state
-  const [liveSlides,    setLiveSlides]    = useState<SlideData[]>(() => SLIDES.map(s => ({ ...s })))
-  const [draggingId,    setDraggingId]    = useState<string | null>(null)
-  const [mergeTargetId, setMergeTargetId] = useState<string | null>(null)
-  const mergeTargetRef = useRef<string | null>(null)
-  const cardRefs       = useRef<Map<string, HTMLDivElement>>(new Map())
+  const [isDrawerOpen,      setIsDrawerOpen]      = useState(false)
+  const [liveSlides,        setLiveSlides]        = useState<SlideData[]>(() => SLIDES.map(s => ({ ...s })))
 
   function handleDelta(delta: number) {
     setTotalMinutes(m => Math.max(60, m + delta))
   }
 
-  function handleMainAccepted() {
-    setAcceptedCount(c => c + 1)
+  function effectiveSuggestion(slide: SlideData): AISuggestion | undefined {
+    return slide.id === 'ia-content' && isCalibrated && !finalCutAccepted
+      ? POST_CAL_SUGGESTION
+      : slide.aiSuggestion
   }
 
-  function handleDragEnd(sourceId: string) {
-    const targetId = mergeTargetRef.current
-    setDraggingId(null)
-    mergeTargetRef.current = null
-    setMergeTargetId(null)
-
-    if (!targetId) return
-
-    const source = liveSlides.find(s => s.id === sourceId)
-    const target = liveSlides.find(s => s.id === targetId)
-    if (!source || !target) return
-
-    // Remove source card, mark target as AI-rewriting
-    setLiveSlides(prev =>
-      prev
-        .filter(s => s.id !== sourceId)
-        .map(s => s.id === targetId ? { ...s, isMerging: true } : s)
-    )
-
-    // After 2.2 s reveal combined content
-    const mergedNotes   = getMergedNotes(source, target)
-    const mergedMinutes = source.baseMinutes + target.baseMinutes
-    setTimeout(() => {
-      setLiveSlides(prev =>
-        prev.map(s =>
-          s.id === targetId
-            ? { ...s, isMerging: false, initialNotes: mergedNotes, baseMinutes: mergedMinutes }
-            : s
-        )
-      )
-    }, 2200)
+  function handleNotesChange(slideId: string, notes: string) {
+    setLiveSlides(prev => prev.map(s => s.id === slideId ? { ...s, initialNotes: notes } : s))
   }
+
+  function handleAcceptSuggestion(slideId: string) {
+    if (aiUsageCount >= FREE_LIMIT) {
+      setPaywallOpen(true)
+      return
+    }
+    const slide = liveSlides.find(s => s.id === slideId)
+    const suggestion = slide && effectiveSuggestion(slide)
+    if (!slide || !suggestion) return
+
+    const newNotes = slide.initialNotes
+      .replace(suggestion.text, '')
+      .replace(/[ \t]{2,}/g, ' ')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim()
+
+    setLiveSlides(prev => prev.map(s => s.id === slideId ? { ...s, initialNotes: newNotes } : s))
+    setAiUsageCount(c => c + 1)
+    handleDelta(-suggestion.saveMinutes)
+
+    if (slideId === 'ia-content') setFinalCutAccepted(true)
+    else setAcceptedCount(c => c + 1)
+  }
+
+  function handleReorder(newOrder: WorkspaceSlideData[]) {
+    const byId = new Map(liveSlides.map(s => [s.id, s]))
+    const reordered = newOrder
+      .map(s => byId.get(s.id))
+      .filter((s): s is SlideData => Boolean(s))
+    setLiveSlides(reordered)
+  }
+
+  const workspaceSlides: WorkspaceSlideData[] = liveSlides.map((slide) => ({
+    id: slide.id,
+    title: slide.title,
+    imageUrl: slide.imageUrl,
+    baseMinutes: slide.baseMinutes,
+    notes: slide.initialNotes,
+    aiSuggestion: effectiveSuggestion(slide),
+  }))
 
   const currentDuration = isCalibrated
     ? finalCutAccepted ? '2h00' : (calibratedDuration ?? '2h04')
@@ -260,14 +246,17 @@ export default function CoursePreview({
         <div className="rounded-2xl border border-slate-100/80 px-6 py-5 bg-gradient-to-r from-white via-white to-primary/5 shadow-[0_1px_3px_rgba(0,0,0,0.03),_0_8px_32px_rgba(90,87,255,0.04)]">
           <div className="flex items-center gap-6">
 
-            {/* Duration KPI */}
+            {/* Duration KPI — always visible, even with the drawer closed */}
             <div className="flex items-center gap-3.5 flex-shrink-0">
-              <span
-                key={currentDuration}
-                className={`text-5xl font-black tracking-[-0.04em] leading-none animate-duration-change transition-colors duration-500 ${kpiColor}`}
-              >
-                {currentDuration}
-              </span>
+              <div className="flex flex-col leading-none">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Durée totale</span>
+                <span
+                  key={currentDuration}
+                  className={`text-5xl font-black tracking-[-0.04em] leading-none animate-duration-change transition-colors duration-500 ${kpiColor}`}
+                >
+                  {currentDuration}
+                </span>
+              </div>
               <div className="flex flex-col gap-1.5">
                 <Badge label={statusBadge.label} variant={statusBadge.variant} />
                 <span className="text-[10px] font-bold text-slate-400 tracking-wide">Objectif {course.targetDuration}</span>
@@ -287,6 +276,15 @@ export default function CoursePreview({
               </div>
             </div>
 
+            {/* Drawer trigger */}
+            <button
+              onClick={() => setIsDrawerOpen(true)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-full border border-slate-200 bg-white text-slate-500 text-xs font-bold hover:text-primary hover:border-primary/30 hover:bg-primary/5 transition-all duration-200 flex-shrink-0"
+            >
+              <InfoIcon />
+              Détails du cours
+            </button>
+
             {/* Save CTA */}
             <Button
               variant="primary"
@@ -298,206 +296,13 @@ export default function CoursePreview({
           </div>
         </div>
 
-        {/* ── MAIN GRID ─────────────────────────────────────────────── */}
-        <div className="grid grid-cols-12 gap-8 items-start">
-
-          {/* LEFT — Storyboard feed (70%) */}
-          <div className="col-span-8 flex flex-col gap-8">
-            <AnimatePresence>
-              {liveSlides.map((slide, i) => {
-                const suggestion: AISuggestion | undefined =
-                  slide.id === 'ia-content' && isCalibrated && !finalCutAccepted
-                    ? POST_CAL_SUGGESTION
-                    : slide.aiSuggestion
-
-                return (
-                  <motion.div
-                    key={slide.id}
-                    layout
-                    exit={{ opacity: 0, scale: 0.48, y: -8, filter: 'blur(5px)' }}
-                    transition={{
-                      layout:  { type: 'spring', stiffness: 110, damping: 20 },
-                      default: { duration: 0.3, ease: 'easeIn' },
-                    }}
-                  >
-                    <SlideNode
-                      key={slide.id === 'ia-content' && isCalibrated ? `${slide.id}-cal` : slide.id}
-                      index={i + 1}
-                      total={liveSlides.length}
-                      title={slide.title}
-                      imageUrl={`/Slide${i + 1}.png`}
-                      initialNotes={slide.initialNotes}
-                      condensedNotes={slide.condensedNotes}
-                      baseMinutes={slide.baseMinutes}
-                      aiSuggestion={suggestion}
-                      isMergeTarget={mergeTargetId === slide.id}
-                      isMerging={slide.isMerging}
-                      aiUsageCount={aiUsageCount}
-                      freeLimit={FREE_LIMIT}
-                      onAiUsed={() => setAiUsageCount(c => c + 1)}
-                      onUpgrade={() => setPaywallOpen(true)}
-                      onMinutesDelta={handleDelta}
-                      onSuggestionAccepted={
-                        slide.id === 'ia-content'
-                          ? () => setFinalCutAccepted(true)
-                          : handleMainAccepted
-                      }
-                      onDragStart={() => {
-                        setDraggingId(slide.id)
-                        mergeTargetRef.current = null
-                        setMergeTargetId(null)
-                      }}
-                      onDrag={(x, y) => {
-                        let found: string | null = null
-                        for (const [tid, el] of cardRefs.current) {
-                          if (tid === slide.id) continue
-                          const r = el.getBoundingClientRect()
-                          if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) {
-                            found = tid
-                            break
-                          }
-                        }
-                        if (found !== mergeTargetRef.current) {
-                          mergeTargetRef.current = found
-                          setMergeTargetId(found)
-                        }
-                      }}
-                      onDragEnd={() => handleDragEnd(slide.id)}
-                      registerRef={(el) => {
-                        if (el) cardRefs.current.set(slide.id, el)
-                        else cardRefs.current.delete(slide.id)
-                      }}
-                    />
-                  </motion.div>
-                )
-              })}
-            </AnimatePresence>
-          </div>
-
-          {/* RIGHT — Sticky sidebar (30%) */}
-          <motion.div
-            variants={sidebarVariants}
-            initial="hidden"
-            animate="show"
-            className="col-span-4 sticky top-6 flex flex-col gap-6"
-          >
-
-            {/* ── KPI summary card ── */}
-            <motion.div
-              variants={cardVariants}
-              className="bg-white rounded-3xl border border-slate-100/60 shadow-[0_4px_30px_rgba(15,23,42,0.04)] overflow-hidden"
-            >
-              <div className="px-7 pt-7 pb-7">
-                <span className="text-sm font-black uppercase tracking-widest text-slate-400">Durée totale</span>
-                <div className="flex items-end gap-3 mt-3">
-                  <span
-                    key={currentDuration}
-                    className={`text-4xl font-black tracking-[-0.04em] leading-none animate-duration-change ${kpiColor}`}
-                  >
-                    {currentDuration}
-                  </span>
-                  <span className="text-sm font-semibold text-slate-400 pb-0.5">/ 2h00 objectif</span>
-                </div>
-              </div>
-            </motion.div>
-
-            {/* ── Context card ── */}
-            <motion.div
-              variants={cardVariants}
-              className="bg-white rounded-3xl border border-slate-100/60 shadow-[0_4px_30px_rgba(15,23,42,0.04)] overflow-hidden"
-            >
-              <div className="px-7 pt-6 pb-4 border-b border-slate-100/60 flex items-center justify-between">
-                <span className="text-sm font-black uppercase tracking-widest text-slate-400">Contexte</span>
-                <Badge label="Démo gratuite" variant="success" />
-              </div>
-              <div className="px-7 py-1">
-                {[
-                  { label: 'École',  value: 'ESD Bordeaux'   },
-                  { label: 'Séance', value: sessionDate       },
-                  { label: 'Statut', value: statutLabel       },
-                  { label: 'Slides', value: `${liveSlides.length} slides` },
-                ].map(({ label, value }, i, arr) => (
-                  <div key={label} className={`flex items-center justify-between py-3.5 ${i < arr.length - 1 ? 'border-b border-slate-50' : ''}`}>
-                    <span className="text-sm font-semibold text-slate-400">{label}</span>
-                    <span className="text-sm font-bold text-slate-700 text-right max-w-[60%] leading-tight">{value}</span>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-
-            {/* ── Personalize CTA (after at least 1 suggestion accepted) ── */}
-            <AnimatePresence>
-              {showPersonalizeCTA && (
-                <motion.div
-                  key="personalize-cta"
-                  variants={cardVariants}
-                  initial="hidden"
-                  animate="show"
-                  exit={{ opacity: 0, y: -8 }}
-                  className="bg-gradient-to-br from-primary/5 via-violet-50/60 to-white rounded-3xl border border-primary/15 shadow-[0_4px_20px_rgba(90,87,255,0.06)] p-7"
-                >
-                  <p className="text-sm font-black uppercase tracking-widest text-primary/60 mb-3">Prochaine étape</p>
-                  <p className="text-base font-extrabold text-slate-800 mb-2 tracking-tight">Calibrez votre débit vocal</p>
-                  <p className="text-sm text-slate-400 font-semibold leading-relaxed mb-4">
-                    Obtenez une estimation personnalisée basée sur votre vitesse de parole réelle.
-                  </p>
-                  <Button variant="primary" fullWidth onClick={onPersonalize} className="shadow-glow">
-                    Calibrer mon profil →
-                  </Button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* ── Post-calibration card ── */}
-            {showCalibrationCard && (
-              <motion.div
-                variants={cardVariants}
-                className="bg-white rounded-3xl border border-primary/12 shadow-[0_4px_20px_rgba(90,87,255,0.05)] p-7"
-              >
-                <p className="text-sm font-black uppercase tracking-widest text-primary/50 mb-3">Profil vocal</p>
-                <p className="text-base font-extrabold text-slate-800 flex items-center gap-1.5 mb-2 tracking-tight">
-                  <span className="text-emerald-500">✓</span> Cours recalibré
-                </p>
-                <p className="text-sm text-slate-400 font-semibold leading-relaxed">
-                  Débit détecté : {course.wpm} mots/min.{' '}
-                  {finalCutAccepted
-                    ? 'Durée parfaitement alignée sur votre rythme.'
-                    : 'Ouvrez la slide 3 pour appliquer la suggestion finale (+4 min).'}
-                </p>
-                {finalCutAccepted && (
-                  <motion.div
-                    initial={{ scale: 0.95, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    className="mt-4 flex items-center gap-2.5 p-4 rounded-2xl bg-emerald-50 border border-emerald-100"
-                  >
-                    <span className="text-emerald-500 font-black">✓</span>
-                    <p className="text-sm font-bold text-emerald-700">Cours calibré sur votre profil — exactement 2h00 !</p>
-                  </motion.div>
-                )}
-              </motion.div>
-            )}
-
-            {/* ── Exercise card ── */}
-            <motion.div
-              variants={cardVariants}
-              className="bg-white rounded-3xl border border-slate-100/60 shadow-[0_4px_30px_rgba(15,23,42,0.04)] p-7"
-            >
-              <p className="text-sm font-black uppercase tracking-widest text-slate-400 mb-3">Exercice principal</p>
-              <p className="text-base font-bold text-slate-800 mb-3 tracking-tight leading-snug">{course.exercise}</p>
-              <Badge label="Cas pratique intégré" variant="primary" />
-            </motion.div>
-
-            {/* ── Secondary actions ── */}
-            <motion.div variants={cardVariants} className="flex flex-col items-center gap-2 pt-1">
-              <button onClick={onExport} className="text-sm font-bold text-slate-400 hover:text-slate-600 transition-colors">Exporter</button>
-              {onViewPlanning && (
-                <button onClick={onViewPlanning} className="text-sm font-bold text-slate-400 hover:text-slate-600 transition-colors">Voir dans le planning</button>
-              )}
-              <button onClick={onBack} className="text-sm font-bold text-slate-400 hover:text-slate-500 transition-colors mt-1">← Retour</button>
-            </motion.div>
-
-          </motion.div>
-        </div>
+        {/* ── Storyboard: dual-view workspace (Présentation / Édition) ── */}
+        <SlideWorkspace
+          slides={workspaceSlides}
+          onNotesChange={handleNotesChange}
+          onAcceptSuggestion={handleAcceptSuggestion}
+          onReorder={handleReorder}
+        />
       </div>
 
       {/* ── Pricing modal (triggered by inline soft paywall) ── */}
@@ -506,6 +311,25 @@ export default function CoursePreview({
         onClose={() => setPaywallOpen(false)}
         onSelectStandard={onSave}
         onSelectPro={onSave}
+        freeLimit={FREE_LIMIT}
+      />
+
+      {/* ── Course details slide-over (Contexte, Exercice, actions secondaires) ── */}
+      <CourseDetailsDrawer
+        isOpen={isDrawerOpen}
+        onClose={() => setIsDrawerOpen(false)}
+        sessionDate={sessionDate}
+        statutLabel={statutLabel}
+        slideCount={liveSlides.length}
+        showPersonalizeCTA={showPersonalizeCTA}
+        onPersonalize={onPersonalize}
+        showCalibrationCard={showCalibrationCard}
+        wpm={course.wpm}
+        finalCutAccepted={finalCutAccepted}
+        exercise={course.exercise}
+        onExport={onExport}
+        onViewPlanning={onViewPlanning}
+        onBack={onBack}
       />
     </AppShell>
   )

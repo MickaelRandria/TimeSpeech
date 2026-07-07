@@ -14,6 +14,7 @@ export interface SlideNodeProps {
   initialNotes: string
   condensedNotes?: string
   baseMinutes: number
+  stepMinutes?: number
   aiSuggestion?: AISuggestion
   isMergeTarget?: boolean
   isMerging?: boolean
@@ -35,6 +36,10 @@ export interface SlideNodeProps {
 
 function wc(t: string) {
   return t.trim().split(/\s+/).filter(Boolean).length
+}
+
+function roundToStep(value: number, step: number) {
+  return Math.round(value / step) * step
 }
 
 function ClockIcon() {
@@ -92,6 +97,7 @@ export default function SlideNode({
   initialNotes,
   condensedNotes,
   baseMinutes,
+  stepMinutes = 5,
   aiSuggestion,
   isMergeTarget = false,
   isMerging     = false,
@@ -108,11 +114,15 @@ export default function SlideNode({
 }: SlideNodeProps) {
   const dragControls = useDragControls()
 
-  // ── Slider
-  const sliderMin = Math.max(3, Math.round(baseMinutes * 0.4))
-  const sliderMax = Math.round(baseMinutes * 1.5)
-  const [sliderValue, setSliderValue]           = useState(baseMinutes)
-  const stableRef                                = useRef(baseMinutes)
+  // ── Slider — snapped to `stepMinutes` increments so the visible track,
+  // the native input's step grid, and the displayed value never drift apart
+  const sliderMin          = Math.max(stepMinutes, roundToStep(baseMinutes * 0.4, stepMinutes))
+  const sliderMax          = Math.max(sliderMin + stepMinutes, roundToStep(baseMinutes * 1.5, stepMinutes))
+  const snappedBaseMinutes = Math.min(sliderMax, Math.max(sliderMin, roundToStep(baseMinutes, stepMinutes)))
+  const stepCount          = Math.round((sliderMax - sliderMin) / stepMinutes)
+  const stepMarks          = Array.from({ length: stepCount + 1 }, (_, i) => (i / stepCount) * 100)
+  const [sliderValue, setSliderValue]           = useState(snappedBaseMinutes)
+  const stableRef                                = useRef(snappedBaseMinutes)
   const [isHovering, setIsHovering]             = useState(false)
   const [isDraggingSlider, setIsDraggingSlider] = useState(false)
 
@@ -148,8 +158,8 @@ export default function SlideNode({
       }
       if (minutesChanged) {
         prevBaseMinutes.current = baseMinutes
-        setSliderValue(baseMinutes)
-        stableRef.current = baseMinutes
+        setSliderValue(snappedBaseMinutes)
+        stableRef.current = snappedBaseMinutes
       }
       if (notesChanged) {
         setJustMerged(true)
@@ -185,7 +195,7 @@ export default function SlideNode({
   const handlePointerUp = useCallback(() => {
     setIsDraggingSlider(false)
     const delta = sliderValue - stableRef.current
-    if (Math.abs(delta) < 2) return
+    if (delta === 0) return
 
     // Always commit the new time value
     onMinutesDelta(delta)
@@ -215,7 +225,7 @@ export default function SlideNode({
       .replace(/[ \t]{2,}/g, ' ')
       .replace(/\n{3,}/g, '\n\n')
       .trim()
-    const newSlider = Math.max(sliderMin, sliderValue - aiSuggestion.saveMinutes)
+    const newSlider = Math.max(sliderMin, roundToStep(sliderValue - aiSuggestion.saveMinutes, stepMinutes))
     setSliderValue(newSlider)
     stableRef.current = newSlider
     onMinutesDelta(-aiSuggestion.saveMinutes)
@@ -223,7 +233,7 @@ export default function SlideNode({
     setSuggestionDone(true)
     setShowBar(false)
     onSuggestionAccepted?.()
-  }, [aiSuggestion, notes, sliderValue, sliderMin, onMinutesDelta, onSuggestionAccepted])
+  }, [aiSuggestion, notes, sliderValue, sliderMin, stepMinutes, onMinutesDelta, onSuggestionAccepted])
 
   // ── Derived visual state ───────────────────────────────────────────────────
 
@@ -380,6 +390,20 @@ export default function SlideNode({
               </div>
             </div>
 
+            {/* Step notches — one per `stepMinutes` increment, lit up once the fill passes them */}
+            <div className="absolute inset-0 flex items-center pointer-events-none">
+              {stepMarks.map((pct, i) => (
+                <span
+                  key={i}
+                  className="absolute top-1/2 w-[2px] h-[9px] -translate-x-1/2 -translate-y-1/2 rounded-full transition-colors duration-300"
+                  style={{
+                    left: `${pct}%`,
+                    backgroundColor: pct <= sliderPct ? 'rgba(255,255,255,0.9)' : 'rgba(148,163,184,0.45)',
+                  }}
+                />
+              ))}
+            </div>
+
             <motion.div
               className="absolute top-1/2 -translate-y-1/2 pointer-events-none z-0"
               animate={{ left: `${sliderPct}%` }}
@@ -396,6 +420,7 @@ export default function SlideNode({
               type="range"
               min={sliderMin}
               max={sliderMax}
+              step={stepMinutes}
               value={sliderValue}
               onChange={handleSliderChange}
               onPointerDown={() => setIsDraggingSlider(true)}
