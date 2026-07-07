@@ -187,7 +187,7 @@ export default function CoursePreview({
   }
 
   function handleReorder(newOrder: WorkspaceSlideData[]) {
-    const byId = new Map(liveSlides.map(s => [s.id, s]))
+    const byId = new Map<string, SlideData>(liveSlides.map(s => [s.id, s]))
     const reordered = newOrder
       .map(s => byId.get(s.id))
       .filter((s): s is SlideData => Boolean(s))
